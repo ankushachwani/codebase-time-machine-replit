@@ -1,0 +1,1679 @@
+// Codebase Time Machine - Frontend Application
+class CodebaseTimeMachine {
+    constructor() {
+        this.currentRepoId = null;
+        this.analysisData = null;
+        this.init();
+    }
+
+    init() {
+        this.setupEventListeners();
+        this.initThreeJS();
+        this.setupTabs();
+        this.showWelcomeMessage();
+    }
+
+    setupEventListeners() {
+        // URL Analysis Form
+        const urlForm = document.getElementById('url-form');
+        if (urlForm) {
+            urlForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.analyzeRepoURL();
+            });
+        }
+
+        // Upload Form
+        const uploadForm = document.getElementById('upload-form');
+        if (uploadForm) {
+            uploadForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.uploadRepository();
+            });
+        }
+
+        // Query Form
+        const queryForm = document.getElementById('query-form');
+        if (queryForm) {
+            queryForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.queryRepository();
+            });
+        }
+
+        // Visualization buttons
+        this.setupVisualizationButtons();
+
+        // File Upload Drag & Drop
+        this.setupFileUpload();
+
+        // Navigation smooth scroll
+        this.setupSmoothScroll();
+    }
+
+    setupVisualizationButtons() {
+        // Find all visualization buttons and add event listeners
+        const vizButtons = document.querySelectorAll('button[onclick*="generateVisualization"]');
+        vizButtons.forEach(button => {
+            // Extract visualization type from onclick attribute
+            const onclickAttr = button.getAttribute('onclick');
+            const typeMatch = onclickAttr.match(/generateVisualization\('([^']+)'\)/);
+            if (typeMatch) {
+                const vizType = typeMatch[1];
+                console.log(`🔧 Setting up visualization button for type: ${vizType}`);
+                
+                // Remove the onclick attribute and add proper event listener
+                button.removeAttribute('onclick');
+                button.addEventListener('click', () => {
+                    console.log(`🎯 Visualization button clicked: ${vizType}`);
+                    this.generateVisualization(vizType);
+                });
+            }
+        });
+    }
+
+    setupFileUpload() {
+        const fileUpload = document.querySelector('.file-upload');
+        const fileInput = document.getElementById('repo-file');
+        const label = document.querySelector('.file-upload-label');
+
+        if (!fileUpload || !fileInput || !label) return;
+
+        // Drag and drop handlers
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            fileUpload.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            fileUpload.addEventListener(eventName, () => {
+                fileUpload.classList.add('drag-over');
+                label.style.borderColor = 'var(--moss-green)';
+                label.style.background = 'rgba(143, 188, 143, 0.2)';
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            fileUpload.addEventListener(eventName, () => {
+                fileUpload.classList.remove('drag-over');
+                label.style.borderColor = '';
+                label.style.background = '';
+            }, false);
+        });
+
+        fileUpload.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            fileInput.files = files;
+            this.updateFileLabel(files[0]);
+        }, false);
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                this.updateFileLabel(e.target.files[0]);
+            }
+        });
+    }
+
+    updateFileLabel(file) {
+        const label = document.querySelector('.file-upload-label');
+        if (file && label) {
+            label.innerHTML = `📁 ${file.name}`;
+            label.style.color = 'var(--forest-green)';
+        }
+    }
+
+    setupSmoothScroll() {
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const href = this.getAttribute('href');
+                if (href && href.length > 1) {  // Only process valid selectors
+                    const target = document.querySelector(href);
+                    if (target) {
+                        target.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'start'
+                        });
+                    }
+                }
+            });
+        });
+    }
+
+    setupTabs() {
+        const tabButtons = document.querySelectorAll('.tab-button');
+        const tabContents = document.querySelectorAll('.tab-content');
+
+        tabButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const tabId = button.dataset.tab;
+                
+                // Remove active class from all buttons and contents
+                tabButtons.forEach(btn => btn.classList.remove('active'));
+                tabContents.forEach(content => content.classList.remove('active'));
+                
+                // Add active class to clicked button and corresponding content
+                button.classList.add('active');
+                const targetContent = document.getElementById(`tab-${tabId}`);
+                if (targetContent) {
+                    targetContent.classList.add('active');
+                }
+            });
+        });
+    }
+
+    initThreeJS() {
+        try {
+            const canvas = document.getElementById('three-canvas');
+            const hero = document.querySelector('.hero');
+            
+            if (!canvas || !hero || typeof THREE === 'undefined') return;
+
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            const renderer = new THREE.WebGLRenderer({ canvas, alpha: true });
+            
+            renderer.setSize(hero.offsetWidth, hero.offsetHeight);
+            renderer.setClearColor(0x000000, 0);
+
+            // Create organic tree-like structure
+            const createTree = () => {
+                const group = new THREE.Group();
+
+                // Trunk
+                const trunkGeometry = new THREE.CylinderGeometry(0.1, 0.2, 2, 8);
+                const trunkMaterial = new THREE.MeshBasicMaterial({ color: 0x8B4513 });
+                const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
+                trunk.position.y = 1;
+                group.add(trunk);
+
+                // Leaves/Branches
+                for (let i = 0; i < 5; i++) {
+                    const leavesGeometry = new THREE.SphereGeometry(0.3 + Math.random() * 0.3, 8, 8);
+                    const leavesMaterial = new THREE.MeshBasicMaterial({ 
+                        color: 0x2D5B3D,
+                        transparent: true,
+                        opacity: 0.7
+                    });
+                    const leaves = new THREE.Mesh(leavesGeometry, leavesMaterial);
+                    
+                    leaves.position.set(
+                        (Math.random() - 0.5) * 2,
+                        2 + Math.random() * 1.5,
+                        (Math.random() - 0.5) * 2
+                    );
+                    group.add(leaves);
+                }
+
+                return group;
+            };
+
+            // Create multiple trees
+            const trees = [];
+            for (let i = 0; i < 3; i++) {
+                const tree = createTree();
+                tree.position.set(
+                    (Math.random() - 0.5) * 10,
+                    -2,
+                    (Math.random() - 0.5) * 10
+                );
+                tree.scale.set(0.5 + Math.random() * 0.5, 0.5 + Math.random() * 0.5, 0.5 + Math.random() * 0.5);
+                scene.add(tree);
+                trees.push(tree);
+            }
+
+            camera.position.z = 8;
+            camera.position.y = 2;
+
+            // Animation loop
+            const animate = () => {
+                requestAnimationFrame(animate);
+
+                const time = Date.now() * 0.001;
+                trees.forEach((tree, index) => {
+                    tree.rotation.y += 0.002;
+                    tree.position.y = -2 + Math.sin(time + index) * 0.2;
+                    
+                    // Animate leaves
+                    tree.children.forEach((child, childIndex) => {
+                        if (childIndex > 0) { // Skip trunk
+                            child.rotation.x = Math.sin(time + childIndex) * 0.1;
+                            child.rotation.z = Math.cos(time + childIndex) * 0.1;
+                        }
+                    });
+                });
+
+                renderer.render(scene, camera);
+            };
+
+            animate();
+
+            // Handle window resize
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(hero.offsetWidth, hero.offsetHeight);
+            });
+
+        } catch (error) {
+            console.log('Three.js initialization failed:', error);
+        }
+    }
+
+    showWelcomeMessage() {
+        // Add welcome animation
+        const heroContent = document.querySelector('.hero-content');
+        if (heroContent) {
+            heroContent.classList.add('animate-fade-in');
+        }
+    }
+
+    async analyzeRepoURL() {
+        const repoUrl = document.getElementById('repo-url').value.trim();
+        if (!repoUrl) {
+            return;
+            return;
+        }
+
+        try {
+            this.showLoading('analysis-loading', true);
+            this.hideElement('analysis-results');
+
+            const response = await fetch('/api/analyze-repo-url', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ repoUrl })
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+            // Store analysis data globally for visualizations
+            window.analysisData = data.analysis;
+            // Store data for visualizations
+            window.currentAnalysisData = data.analysis;
+            // Show analysis results section
+            const resultsSection = document.getElementById("analysis-results");
+            if (resultsSection) {
+                resultsSection.style.display = "block";
+                console.log("📋 Analysis results section displayed");
+            }
+            console.log("📊 Stored analysis data for visualizations:", !!window.currentAnalysisData);
+            window.currentRepoId = data.analysis.repo_id;
+            window.currentRepoId = data.analysis.repo_id;
+            console.log("📊 Analysis data stored globally");
+                this.analysisData = data.analysis;
+                this.currentRepoId = data.analysis.repo_id;
+                this.showAnalysisResults(data.analysis);
+                
+                // Scroll to results
+                setTimeout(() => {
+                    document.getElementById('analysis-results').scrollIntoView({
+                        behavior: 'smooth'
+                    });
+                }, 500);
+                
+            } else {
+                console.error('Analysis failed:', data.error);
+            }
+
+        } catch (error) {
+            console.error('Analysis error:', error);
+            console.error('Network error occurred.');
+        } finally {
+            this.showLoading('analysis-loading', false);
+        }
+    }
+
+    async uploadRepository() {
+        const fileInput = document.getElementById('repo-file');
+        const file = fileInput.files[0];
+
+        if (!file) {
+            return;
+            return;
+        }
+
+        if (!file.name.toLowerCase().endsWith('.zip')) {
+            return;
+            return;
+        }
+
+        try {
+            this.showLoading('analysis-loading', true);
+            this.hideElement('analysis-results');
+
+            const formData = new FormData();
+            formData.append('repoFile', file);
+
+            const response = await fetch('/api/upload-repo', {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+            // Store analysis data globally for visualizations
+            window.analysisData = data.analysis;
+            // Store data for visualizations
+            window.currentAnalysisData = data.analysis;
+            // Show analysis results section
+            const resultsSection = document.getElementById("analysis-results");
+            if (resultsSection) {
+                resultsSection.style.display = "block";
+                console.log("📋 Analysis results section displayed");
+            }
+            console.log("📊 Stored analysis data for visualizations:", !!window.currentAnalysisData);
+            window.currentRepoId = data.analysis.repo_id;
+            window.currentRepoId = data.analysis.repo_id;
+            console.log("📊 Analysis data stored globally");
+                this.analysisData = data.analysis;
+                this.currentRepoId = data.analysis.repo_id;
+                this.showAnalysisResults(data.analysis);
+                
+                // Scroll to results
+                setTimeout(() => {
+                    document.getElementById('analysis-results').scrollIntoView({
+                        behavior: 'smooth'
+                    });
+                }, 500);
+                
+            } else {
+                console.error('Upload analysis failed:', data.error);
+            }
+
+        } catch (error) {
+            console.error('Upload error:', error);
+            console.error('Upload failed.');
+        } finally {
+            this.showLoading('analysis-loading', false);
+        }
+    }
+
+    async queryRepository() {
+        const query = document.getElementById('query-input').value.trim();
+        
+        if (!query) {
+            return;
+            return;
+        }
+
+        if (!this.currentRepoId) {
+            return;
+            return;
+        }
+
+        try {
+            this.showLoading('query-loading', true);
+            this.hideElement('query-results');
+
+            const response = await fetch('/api/query', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    query: query,
+                    repoId: this.currentRepoId
+                })
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+            // Store analysis data globally for visualizations
+            window.analysisData = data.analysis;
+            // Store data for visualizations
+            window.currentAnalysisData = data.analysis;
+            // Show analysis results section
+            const resultsSection = document.getElementById("analysis-results");
+            if (resultsSection) {
+                resultsSection.style.display = "block";
+                console.log("📋 Analysis results section displayed");
+            }
+            console.log("📊 Stored analysis data for visualizations:", !!window.currentAnalysisData);
+            window.currentRepoId = data.analysis.repo_id;
+            window.currentRepoId = data.analysis.repo_id;
+            console.log("📊 Analysis data stored globally");
+                this.showQueryResults(data.results);
+            } else {
+                console.error('Query failed:', data.error);
+            }
+
+        } catch (error) {
+            console.error('Query error:', error);
+            console.error('Query failed.');
+        } finally {
+            this.showLoading('query-loading', false);
+        }
+    }
+
+    showAnalysisResults(analysis) {
+        const resultsContainer = document.getElementById('analysis-results');
+        const summaryContainer = document.getElementById('analysis-summary');
+
+        if (!resultsContainer || !summaryContainer) return;
+
+        // Create summary HTML
+        const structure = analysis.structure_info || {};
+        const insights = analysis.insights || {};
+
+        let summaryHTML = `
+            <div class="grid grid-3 mb-6">
+                <div class="text-center">
+                    <h4 style="color: var(--forest-green); font-size: 2rem; font-weight: bold;">${structure.total_commits || 0}</h4>
+                    <p>Total Commits</p>
+                </div>
+                <div class="text-center">
+                    <h4 style="color: var(--forest-green); font-size: 2rem; font-weight: bold;">${structure.contributors_count || 0}</h4>
+                    <p>Contributors</p>
+                </div>
+                <div class="text-center">
+                    <h4 style="color: var(--forest-green); font-size: 2rem; font-weight: bold;">${structure.total_files || 0}</h4>
+                    <p>Files Analyzed</p>
+                </div>
+            </div>
+        `;
+
+        if (structure.file_extensions && Object.keys(structure.file_extensions).length > 0) {
+            summaryHTML += `
+                <div class="mb-6">
+                    <h4 class="mb-4">File Types</h4>
+                    <div class="grid grid-3">
+                        ${Object.entries(structure.file_extensions).slice(0, 6).map(([ext, count]) => `
+                            <div style="background: rgba(143, 188, 143, 0.1); padding: var(--space-3); border-radius: 12px; text-align: center;">
+                                <strong>${ext}</strong>: ${count} files
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        if (insights.top_contributors && insights.top_contributors.length > 0) {
+            summaryHTML += `
+                <div class="mb-6">
+                    <h4 class="mb-4">Top Contributors</h4>
+                    <div class="grid grid-2">
+                        ${insights.top_contributors.slice(0, 4).map(contributor => `
+                            <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(255, 248, 220, 0.7); padding: var(--space-3); border-radius: 12px;">
+                                <span>${contributor.author}</span>
+                                <span class="author-tag">${contributor.commits} commits</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        summaryContainer.innerHTML = summaryHTML;
+        this.showElement('analysis-results');
+    }
+
+    showQueryResults(results) {
+        const resultsContainer = document.getElementById('query-results');
+        const resultsList = document.getElementById('query-results-list');
+
+        if (!resultsContainer || !resultsList) return;
+
+        let resultsHTML = '';
+
+        // Show repository context for general questions
+        if (results.repository_context) {
+            resultsHTML += `
+                <div class="mb-6" style="background: rgba(143, 188, 143, 0.1); padding: var(--space-6); border-radius: 16px; border-left: 4px solid var(--forest-green);">
+                    <h4 style="color: var(--forest-green); margin-bottom: var(--space-4);">📋 Answer</h4>
+                    <div style="margin-bottom: var(--space-4); line-height: 1.6; white-space: pre-line;">${results.repository_context.description.replace(/\\n/g, '\n').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')}</div>
+                    
+                    ${results.repository_context.key_insights && results.repository_context.key_insights.length > 0 ? `
+                        <div>
+                            <h5 style="margin-bottom: var(--space-3);">🔍 Key Insights:</h5>
+                            <ul style="margin-left: var(--space-4);">
+                                ${results.repository_context.key_insights.map(insight => `<li style="margin-bottom: var(--space-2);">${insight}</li>`).join('')}
+                            </ul>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        if (results.results && results.results.length > 0) {
+            const commitResults = results.results.map((result, index) => `
+                <div class="result-item animate-fade-in" style="animation-delay: ${index * 0.1}s">
+                    <div class="result-meta">
+                        <div>
+                            ${result.hash ? `<span class="commit-hash">${result.hash.substring(0, 8)}</span>` : ''}
+                            ${result.author ? `<span class="author-tag">${result.author}</span>` : ''}
+                        </div>
+                        ${result.date ? `<span class="date-tag">${new Date(result.date).toLocaleDateString()}</span>` : ''}
+                    </div>
+                    <div class="result-content">
+                        <h5 style="margin-bottom: var(--space-2); color: var(--forest-green);">
+                            ${result.message || 'No message available'}
+                        </h5>
+                        ${result.files_modified ? `
+                            <p style="font-size: 0.875rem; opacity: 0.8;">
+                                📁 ${result.files_modified} files modified
+                                ${result.insertions ? `• +${result.insertions} additions` : ''}
+                                ${result.deletions ? `• -${result.deletions} deletions` : ''}
+                            </p>
+                        ` : ''}
+                        ${result.similarity_score ? `
+                            <div style="margin-top: var(--space-2);">
+                                <div style="width: ${result.similarity_score * 100}%; height: 4px; background: linear-gradient(90deg, var(--moss-green), var(--forest-green)); border-radius: 2px;"></div>
+                                <span style="font-size: 0.75rem; opacity: 0.7;">Relevance: ${Math.round(result.similarity_score * 100)}%</span>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `).join('');
+
+            resultsHTML += `
+                <div class="mb-4">
+                    <p class="text-success">Found ${results.results.length} commit(s) for "${results.query}"</p>
+                    ${results.search_type ? `<p style="font-size: 0.875rem; opacity: 0.7;">Search type: ${results.search_type}</p>` : ''}
+                </div>
+                <div style="margin-top: var(--space-4);">
+                    <h5 style="margin-bottom: var(--space-3);">📝 Related Commits:</h5>
+                    ${commitResults}
+                </div>
+            `;
+        } else {
+            // Even if no specific commit results, show repository context if available
+            if (results.repository_context) {
+                resultsHTML = `
+                    <div class="mb-6" style="background: rgba(143, 188, 143, 0.1); padding: var(--space-6); border-radius: 16px; border-left: 4px solid var(--forest-green);">
+                        <h4 style="color: var(--forest-green); margin-bottom: var(--space-4);">📋 Answer</h4>
+                        <div style="margin-bottom: var(--space-4); line-height: 1.6; white-space: pre-line;">${results.repository_context.description.replace(/\\n/g, '\n').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')}</div>
+                        
+                        ${results.repository_context.key_insights && results.repository_context.key_insights.length > 0 ? `
+                            <div>
+                                <h5 style="margin-bottom: var(--space-3);">🔍 Additional Insights:</h5>
+                                <ul style="margin-left: var(--space-4);">
+                                    ${results.repository_context.key_insights.map(insight => `<li style="margin-bottom: var(--space-2);">${insight}</li>`).join('')}
+                                </ul>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            } else {
+                resultsHTML = `
+                    <div class="text-center" style="padding: var(--space-8);">
+                        <h4>No results found</h4>
+                        <p>Try a different search query or check if the repository has been analyzed.</p>
+                        ${results.suggestions ? `
+                            <div class="mt-6">
+                                <p><strong>Suggestions:</strong></p>
+                                <ul style="text-align: left; display: inline-block;">
+                                    ${results.suggestions.map(suggestion => `<li>${suggestion}</li>`).join('')}
+                                </ul>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }
+        }
+
+        resultsList.innerHTML = resultsHTML;
+        this.showElement('query-results');
+
+        // Scroll to results
+        setTimeout(() => {
+            resultsContainer.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start'
+            });
+        }, 300);
+    }
+
+    async generateVisualization(type) {
+        console.log(`🎯 generateVisualization called with type: ${type}`);
+        console.log(`🔍 Current repo ID: ${this.currentRepoId}`);
+        console.log(`📊 Analysis data available:`, !!this.analysisData);
+        
+        if (!this.currentRepoId) {
+            console.warn('❌ No repository analyzed yet');
+            return;
+            return;
+        }
+
+        try {
+            console.log(`🚀 Starting visualization generation for ${type}`);
+            this.showLoading('viz-loading', true);
+
+            const requestBody = {
+                type: type,
+                repoId: this.currentRepoId
+            };
+            console.log('📤 Request body:', requestBody);
+
+            const response = await fetch('/api/visualize', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(requestBody)
+            });
+
+            console.log(`📥 Response status: ${response.status}`);
+            const data = await response.json();
+            console.log('📊 Visualization response:', data);
+
+            if (response.ok && data.success) {
+            // Store analysis data globally for visualizations
+            window.analysisData = data.analysis;
+            // Store data for visualizations
+            window.currentAnalysisData = data.analysis;
+            // Show analysis results section
+            const resultsSection = document.getElementById("analysis-results");
+            if (resultsSection) {
+                resultsSection.style.display = "block";
+                console.log("📋 Analysis results section displayed");
+            }
+            console.log("📊 Stored analysis data for visualizations:", !!window.currentAnalysisData);
+            window.currentRepoId = data.analysis.repo_id;
+            window.currentRepoId = data.analysis.repo_id;
+            console.log("📊 Analysis data stored globally");
+                console.log('✅ Visualization generated successfully');
+                this.showVisualization(type, data.visualization);
+            } else {
+                console.error('❌ Visualization failed:', data.error);
+                console.error('Visualization generation failed:', data.error);
+            }
+
+        } catch (error) {
+            console.error('💥 Visualization error:', error);
+            console.error('Failed to generate visualization:', error.message);
+        } finally {
+            this.showLoading('viz-loading', false);
+        }
+    }
+
+    showVisualization(type, vizData) {
+        const container = document.getElementById(`viz-${type}`);
+        if (!container) return;
+
+        container.innerHTML = '';
+
+        if (vizData.error) {
+            container.innerHTML = `
+                <div class="text-center" style="padding: var(--space-8);">
+                    <h4 class="text-error">Visualization Error</h4>
+                    <p>${vizData.error}</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Create visualization container
+        const vizDiv = document.createElement('div');
+        vizDiv.style.width = '100%';
+        vizDiv.style.height = '500px';
+        container.appendChild(vizDiv);
+
+        try {
+            // Use Plotly to render the visualization
+            if (vizData.plot && typeof Plotly !== 'undefined') {
+                Plotly.newPlot(vizDiv, vizData.plot.data, vizData.plot.layout || {}, {
+                    responsive: true,
+                    displayModeBar: false
+                });
+            } else if (vizData.metrics) {
+                // For overview, show metrics
+                this.showMetricsDashboard(container, vizData);
+            } else {
+                container.innerHTML = '<p>No visualization data available</p>';
+            }
+
+            // Add summary if available
+            if (vizData.summary) {
+                const summaryDiv = document.createElement('div');
+                summaryDiv.className = 'mt-6';
+                summaryDiv.innerHTML = `
+                    <h5>Summary</h5>
+                    <div class="grid grid-2" style="margin-top: var(--space-4);">
+                        ${Object.entries(vizData.summary).map(([key, value]) => `
+                            <div style="background: rgba(143, 188, 143, 0.1); padding: var(--space-3); border-radius: 12px;">
+                                <strong>${this.formatKey(key)}:</strong> ${value}
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                container.appendChild(summaryDiv);
+            }
+
+        } catch (error) {
+            console.error('Error rendering visualization:', error);
+            container.innerHTML = `
+                <div class="text-center" style="padding: var(--space-8);">
+                    <h4 class="text-error">Render Error</h4>
+                    <p>Could not display visualization</p>
+                </div>
+            `;
+        }
+    }
+
+    showMetricsDashboard(container, vizData) {
+        const metricsHTML = `
+            <div class="grid grid-2">
+                ${Object.entries(vizData.metrics || {}).map(([key, value]) => `
+                    <div class="text-center" style="background: rgba(143, 188, 143, 0.1); padding: var(--space-6); border-radius: 16px;">
+                        <h3 style="color: var(--forest-green); font-size: 2rem; margin-bottom: var(--space-2);">${value}</h3>
+                        <p>${this.formatKey(key)}</p>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+
+        if (vizData.plot) {
+            const vizDiv = document.createElement('div');
+            vizDiv.style.width = '100%';
+            vizDiv.style.height = '400px';
+            vizDiv.style.marginTop = 'var(--space-6)';
+            
+            try {
+                Plotly.newPlot(vizDiv, vizData.plot.data, vizData.plot.layout || {}, {
+                    responsive: true,
+                    displayModeBar: false
+                });
+                container.innerHTML = metricsHTML;
+                container.appendChild(vizDiv);
+            } catch (error) {
+                container.innerHTML = metricsHTML + '<p>Chart display error</p>';
+            }
+        } else {
+            container.innerHTML = metricsHTML;
+        }
+    }
+
+    formatKey(key) {
+        return key.replace(/_/g, ' ')
+                 .replace(/([A-Z])/g, ' $1')
+                 .replace(/^./, str => str.toUpperCase())
+                 .trim();
+    }
+
+    showLoading(elementId, show) {
+        const element = document.getElementById(elementId);
+        if (element) {
+            element.classList.toggle('active', show);
+        }
+    }
+
+    showElement(elementId) {
+        const element = document.getElementById(elementId);
+        if (element) {
+            element.classList.add('active');
+            element.classList.add('animate-fade-in');
+        }
+    }
+
+    hideElement(elementId) {
+        const element = document.getElementById(elementId);
+        if (element) {
+            element.classList.remove('active');
+        }
+    }
+
+}
+
+// Global function for generating visualizations (called from HTML)
+// Fixed visualization function that properly checks for analysis data
+window.generateVisualization = function(type) {
+    console.log("📊 generateVisualization called with type:", type);
+    
+    // Check multiple sources for analysis data
+    let analysisData = window.analysisData || window.currentAnalysisData || window.app?.analysisData;
+    
+    console.log("🔍 Current repo ID:", window.currentRepoId);
+    console.log("📊 Analysis data available:", !!analysisData);
+    console.log("📋 Data sources check:", {
+        windowAnalysisData: !!window.analysisData,
+        windowCurrentAnalysisData: !!window.currentAnalysisData,
+        appAnalysisData: !!window.app?.analysisData
+    });
+    
+    if (!analysisData) {
+        console.log("❌ No repository analyzed yet");
+        alert("❌ Please analyze a repository first before generating visualizations.\n\nSteps:\n1. Enter a GitHub URL\n2. Click \"Analyze Repository\"\n3. Wait for analysis to complete\n4. Then try visualizations");
+        return;
+    }
+    
+    console.log("✅ Analysis data found, generating visualization for:", type);
+    
+    try {
+        switch(type) {
+            case "timeline":
+                generateTimelineVisualization(analysisData);
+                break;
+            case "contributors":
+                generateContributorsVisualization(analysisData);
+                break;
+            case "files":
+                generateFilesVisualization(analysisData);
+                break;
+            case "complexity":
+                generateComplexityVisualization(analysisData);
+                break;
+            default:
+                console.log("Unknown visualization type:", type);
+                alert("❌ Unknown visualization type: " + type);
+        }
+    } catch (error) {
+        console.error("Visualization error:", error);
+        alert("❌ Visualization error: " + error.message);
+    }
+};
+
+// Initialize the application when DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+    window.app = new CodebaseTimeMachine();
+    
+    // Check for health endpoint
+    fetch('/api/health')
+        .then(response => response.json())
+        .then(data => {
+            console.log('🌱 Codebase Time Machine loaded successfully');
+            console.log('Server status:', data.status);
+        })
+        .catch(error => {
+            console.warn('Could not connect to backend:', error);
+            console.error('Backend connection failed.');
+        });
+});
+
+// Add service worker registration for PWA-like experience
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        // Optional: Register service worker for offline support
+        console.log('Service Worker support detected');
+    });
+}
+// Global backup function for form submission
+window.analyzeRepositoryBackup = async function() {
+    console.log('🚀 Global backup function called');
+    
+    const repoUrl = document.getElementById('repo-url').value.trim();
+    if (!repoUrl) {
+        alert('Please enter a repository URL');
+        return;
+    }
+    
+    try {
+        console.log('📝 Analyzing:', repoUrl);
+        
+        // Show loading
+        const loadingDiv = document.getElementById('analysis-loading');
+        if (loadingDiv) {
+            loadingDiv.style.display = 'block';
+        }
+        
+        const response = await fetch('/api/analyze-repo-url', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ repoUrl: repoUrl })
+        });
+        
+        const data = await response.json();
+        console.log('📊 Response:', data);
+        
+        if (response.ok && data.success) {
+            // Store analysis data globally for visualizations
+            window.analysisData = data.analysis;
+            // Store data for visualizations
+            window.currentAnalysisData = data.analysis;
+            // Show analysis results section
+            const resultsSection = document.getElementById("analysis-results");
+            if (resultsSection) {
+                resultsSection.style.display = "block";
+                console.log("📋 Analysis results section displayed");
+            }
+            console.log("📊 Stored analysis data for visualizations:", !!window.currentAnalysisData);
+            window.currentRepoId = data.analysis.repo_id;
+            window.currentRepoId = data.analysis.repo_id;
+            console.log("📊 Analysis data stored globally");
+            // Show results
+            const resultsDiv = document.getElementById('analysis-results');
+            if (resultsDiv) {
+                resultsDiv.style.display = 'block';
+                resultsDiv.innerHTML = `
+                    <div class="card mt-6">
+                        <h3>✅ Analysis Complete!</h3>
+                        <p><strong>Repository:</strong> ${data.analysis.repo_url}</p>
+                        <p><strong>Total Commits:</strong> ${data.analysis.structure_info.total_commits}</p>
+                        <p><strong>Contributors:</strong> ${data.analysis.structure_info.contributors_count}</p>
+                        <p><strong>Analysis ID:</strong> ${data.analysis.repo_id}</p>
+                        <div class="mt-4">
+                            <h4>Repository Structure:</h4>
+                            <ul>
+                                <li>Total Files: ${data.analysis.structure_info.total_files}</li>
+                                <li>Repository Size: ${data.analysis.structure_info.repository_size_mb.toFixed(2)} MB</li>
+                                <li>Total Branches: ${data.analysis.structure_info.total_branches}</li>
+                            </ul>
+                        </div>
+                    </div>
+                `;
+                resultsDiv.scrollIntoView({ behavior: 'smooth' });
+            }
+            alert('✅ Repository analysis completed successfully!');
+        } else {
+            alert('❌ Error: ' + (data.error || 'Analysis failed'));
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('❌ Network error: ' + error.message);
+    } finally {
+        // Hide loading
+        const loadingDiv = document.getElementById('analysis-loading');
+        if (loadingDiv) {
+            loadingDiv.style.display = 'none';
+        }
+    }
+};
+
+console.log('🔧 Global backup function added');
+
+// Global backup function for file upload
+window.uploadRepositoryBackup = async function() {
+    console.log('📁 Upload backup function called');
+    
+    const fileInput = document.getElementById('repo-file');
+    const file = fileInput.files[0];
+    
+    if (!file) {
+        alert('Please select a ZIP file to upload');
+        return;
+    }
+    
+    if (!file.name.toLowerCase().endsWith('.zip')) {
+        alert('Please select a ZIP file');
+        return;
+    }
+    
+    try {
+        console.log('📤 Uploading:', file.name);
+        
+        // Show loading
+        const loadingDiv = document.getElementById('upload-loading');
+        if (loadingDiv) {
+            loadingDiv.style.display = 'block';
+        }
+        
+        const formData = new FormData();
+        formData.append('repoFile', file);
+        
+        const response = await fetch('/api/upload-repo', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        console.log('📊 Upload response:', data);
+        
+        if (response.ok && data.success) {
+            // Store analysis data globally for visualizations
+            window.analysisData = data.analysis;
+            // Store data for visualizations
+            window.currentAnalysisData = data.analysis;
+            // Show analysis results section
+            const resultsSection = document.getElementById("analysis-results");
+            if (resultsSection) {
+                resultsSection.style.display = "block";
+                console.log("📋 Analysis results section displayed");
+            }
+            console.log("📊 Stored analysis data for visualizations:", !!window.currentAnalysisData);
+            window.currentRepoId = data.analysis.repo_id;
+            window.currentRepoId = data.analysis.repo_id;
+            console.log("📊 Analysis data stored globally");
+            // Show results
+            const resultsDiv = document.getElementById('analysis-results');
+            if (resultsDiv) {
+                resultsDiv.style.display = 'block';
+                resultsDiv.innerHTML = `
+                    <div class="card mt-6">
+                        <h3>✅ Upload & Analysis Complete!</h3>
+                        <p><strong>File:</strong> ${file.name}</p>
+                        <p><strong>Analysis:</strong> Repository uploaded and analyzed successfully</p>
+                        <div class="mt-4">
+                            <p>Your repository has been processed and is ready for queries and visualization.</p>
+                        </div>
+                    </div>
+                `;
+                resultsDiv.scrollIntoView({ behavior: 'smooth' });
+            }
+            alert('✅ File uploaded and analyzed successfully!');
+        } else {
+            alert('❌ Error: ' + (data.error || 'Upload failed'));
+        }
+    } catch (error) {
+        console.error('Upload error:', error);
+        alert('❌ Upload error: ' + error.message);
+    } finally {
+        // Hide loading
+        const loadingDiv = document.getElementById('upload-loading');
+        if (loadingDiv) {
+            loadingDiv.style.display = 'none';
+        }
+    }
+};
+
+console.log('🔧 Upload backup function added');
+
+// Global backup function for queries
+window.queryRepositoryBackup = async function() {
+    console.log("🔎 Query backup function called");
+    
+    const query = document.getElementById("query-input").value.trim();
+    if (!query) {
+        alert("Please enter a query");
+        return;
+    }
+    
+    try {
+        console.log("🔍 Processing query:", query);
+        
+        // Show loading
+        const loadingDiv = document.getElementById("query-loading");
+        if (loadingDiv) {
+            loadingDiv.style.display = "block";
+        }
+        
+        const response = await fetch("/api/query", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ 
+                query: query, 
+                repoId: window.currentRepoId || "1d60d0a17c4d" 
+            })
+        });
+        
+        const data = await response.json();
+        console.log("🔍 Query response:", data);
+        
+        if (response.ok && data.success) {
+            // Store analysis data globally for visualizations
+            window.analysisData = data.analysis;
+            // Store data for visualizations
+            window.currentAnalysisData = data.analysis;
+            // Show analysis results section
+            const resultsSection = document.getElementById("analysis-results");
+            if (resultsSection) {
+                resultsSection.style.display = "block";
+                console.log("📋 Analysis results section displayed");
+            }
+            console.log("📊 Stored analysis data for visualizations:", !!window.currentAnalysisData);
+            window.currentRepoId = data.analysis.repo_id;
+            window.currentRepoId = data.analysis.repo_id;
+            console.log("📊 Analysis data stored globally");
+            // Extract the actual AI response
+            // Extract the actual AI response
+            let aiAnswer = "No detailed answer available.";
+            if (data.results && data.results.repository_context && data.results.repository_context.description) {
+                aiAnswer = data.results.repository_context.description;
+            } else if (data.answer) {
+                aiAnswer = data.answer;
+            }
+            
+            // Show results
+            const resultsDiv = document.getElementById("query-results");
+            if (resultsDiv) {
+                resultsDiv.style.display = "block";
+                resultsDiv.innerHTML = `
+                    <div class="card mt-6">
+                        <h3>✅ Query Complete!</h3>
+                        <p><strong>Question:</strong> ${query}</p>
+                        <div class="mt-4">
+                            <h4>🤖 AI Answer:</h4>
+                            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; white-space: pre-wrap; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6;">
+                                ${aiAnswer || "No detailed answer available."}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                resultsDiv.scrollIntoView({ behavior: "smooth" });
+            }
+        } else {
+            alert("❌ Error: " + (data.error || "Query failed"));
+        }
+    } catch (error) {
+        console.error("Query error:", error);
+        alert("❌ Query error: " + error.message);
+    } finally {
+        // Hide loading
+        const loadingDiv = document.getElementById("query-loading");
+        if (loadingDiv) {
+            loadingDiv.style.display = "none";
+        }
+    }
+};
+
+console.log('🔧 Query backup function added');
+
+// Working visualization functions
+// Fixed visualization function that properly checks for analysis data
+window.generateVisualization = function(type) {
+    console.log("📊 generateVisualization called with type:", type);
+    
+    // Check multiple sources for analysis data
+    let analysisData = window.analysisData || window.currentAnalysisData || window.app?.analysisData;
+    
+    console.log("🔍 Current repo ID:", window.currentRepoId);
+    console.log("📊 Analysis data available:", !!analysisData);
+    console.log("📋 Data sources check:", {
+        windowAnalysisData: !!window.analysisData,
+        windowCurrentAnalysisData: !!window.currentAnalysisData,
+        appAnalysisData: !!window.app?.analysisData
+    });
+    
+    if (!analysisData) {
+        console.log("❌ No repository analyzed yet");
+        alert("❌ Please analyze a repository first before generating visualizations.\n\nSteps:\n1. Enter a GitHub URL\n2. Click \"Analyze Repository\"\n3. Wait for analysis to complete\n4. Then try visualizations");
+        return;
+    }
+    
+    console.log("✅ Analysis data found, generating visualization for:", type);
+    
+    try {
+        switch(type) {
+            case "timeline":
+                generateTimelineVisualization(analysisData);
+                break;
+            case "contributors":
+                generateContributorsVisualization(analysisData);
+                break;
+            case "files":
+                generateFilesVisualization(analysisData);
+                break;
+            case "complexity":
+                generateComplexityVisualization(analysisData);
+                break;
+            default:
+                console.log("Unknown visualization type:", type);
+                alert("❌ Unknown visualization type: " + type);
+        }
+    } catch (error) {
+        console.error("Visualization error:", error);
+        alert("❌ Visualization error: " + error.message);
+    }
+};
+
+function generateTimelineVisualization(data) {
+    console.log('📈 Generating timeline visualization');
+    
+    const targetDiv = document.getElementById('viz-timeline');
+    if (!targetDiv) {
+        console.error('Target div viz-timeline not found');
+        return;
+    }
+    
+    // Show the tab
+    const timelineTab = document.getElementById('tab-timeline');
+    if (timelineTab) {
+        timelineTab.style.display = 'block';
+        timelineTab.scrollIntoView({ behavior: 'smooth' });
+    }
+    
+    // Prepare timeline data
+    const timelineData = data.insights?.activity_timeline || {};
+    const dates = Object.keys(timelineData).sort();
+    const commits = dates.map(date => timelineData[date]);
+    
+    if (dates.length === 0) {
+        targetDiv.innerHTML = '<p>No timeline data available</p>';
+        return;
+    }
+    
+    // Create Plotly timeline chart
+    const trace = {
+        x: dates,
+        y: commits,
+        type: 'scatter',
+        mode: 'lines+markers',
+        name: 'Commits',
+        line: { color: '#2E8B57', width: 3 },
+        marker: { color: '#228B22', size: 8 }
+    };
+    
+    const layout = {
+        title: 'Repository Activity Timeline',
+        xaxis: { title: 'Date' },
+        yaxis: { title: 'Number of Commits' },
+        font: { family: 'Arial, sans-serif' },
+        plot_bgcolor: 'rgba(0,0,0,0)',
+        paper_bgcolor: 'rgba(0,0,0,0)'
+    };
+    
+    Plotly.newPlot(targetDiv, [trace], layout, {responsive: true});
+    targetDiv.innerHTML += `
+        <div style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 5px;">
+            <strong>Timeline Summary:</strong><br>
+            • Total active periods: ${dates.length}<br>
+            • Total commits: ${commits.reduce((a, b) => a + b, 0)}<br>
+            • Most active period: ${dates[commits.indexOf(Math.max(...commits))]} (${Math.max(...commits)} commits)
+        </div>
+    `;
+}
+
+function generateContributorsVisualization(data) {
+    console.log('👥 Generating contributors visualization');
+    
+    const targetDiv = document.getElementById('viz-contributors');
+    if (!targetDiv) {
+        console.error('Target div viz-contributors not found');
+        return;
+    }
+    
+    // Show the tab
+    const contributorsTab = document.getElementById('tab-contributors');
+    if (contributorsTab) {
+        contributorsTab.style.display = 'block';
+        contributorsTab.scrollIntoView({ behavior: 'smooth' });
+    }
+    
+    const contributors = data.insights?.top_contributors || [];
+    if (contributors.length === 0) {
+        targetDiv.innerHTML = '<p>No contributor data available</p>';
+        return;
+    }
+    
+    // Create pie chart for contributors
+    const trace = {
+        values: contributors.map(c => c.commits),
+        labels: contributors.map(c => c.author),
+        type: 'pie',
+        textinfo: 'label+percent',
+        textposition: 'outside',
+        marker: {
+            colors: ['#2E8B57', '#228B22', '#32CD32', '#90EE90', '#98FB98']
+        }
+    };
+    
+    const layout = {
+        title: 'Contributor Distribution',
+        font: { family: 'Arial, sans-serif' },
+        showlegend: true,
+        plot_bgcolor: 'rgba(0,0,0,0)',
+        paper_bgcolor: 'rgba(0,0,0,0)'
+    };
+    
+    Plotly.newPlot(targetDiv, [trace], layout, {responsive: true});
+    
+    // Add contributor details
+    targetDiv.innerHTML += `
+        <div style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 5px;">
+            <strong>Contributor Details:</strong><br>
+            ${contributors.map(c => `• ${c.author}: ${c.commits} commits`).join('<br>')}
+        </div>
+    `;
+}
+
+function generateFilesVisualization(data) {
+    console.log('�� Generating files visualization');
+    
+    const targetDiv = document.getElementById('viz-files');
+    if (!targetDiv) {
+        console.error('Target div viz-files not found');
+        return;
+    }
+    
+    // Show the tab
+    const filesTab = document.getElementById('tab-files');
+    if (filesTab) {
+        filesTab.style.display = 'block';
+        filesTab.scrollIntoView({ behavior: 'smooth' });
+    }
+    
+    const mostModified = data.insights?.most_modified_files || [];
+    if (mostModified.length === 0) {
+        targetDiv.innerHTML = `
+            <div style="padding: 20px; text-align: center;">
+                <h4>📁 File Analysis</h4>
+                <p>Repository Structure:</p>
+                <ul style="text-align: left; display: inline-block;">
+                    <li>Total Files: ${data.structure_info?.total_files || 0}</li>
+                    <li>Total Lines: ${data.structure_info?.total_lines || 0}</li>
+                    <li>Repository Size: ${(data.structure_info?.repository_size_mb || 0).toFixed(2)} MB</li>
+                </ul>
+            </div>
+        `;
+        return;
+    }
+    
+    // Create bar chart for most modified files
+    const trace = {
+        x: mostModified.map(f => f.file),
+        y: mostModified.map(f => f.modifications),
+        type: 'bar',
+        marker: { color: '#2E8B57' }
+    };
+    
+    const layout = {
+        title: 'Most Modified Files',
+        xaxis: { title: 'Files' },
+        yaxis: { title: 'Number of Modifications' },
+        font: { family: 'Arial, sans-serif' },
+        plot_bgcolor: 'rgba(0,0,0,0)',
+        paper_bgcolor: 'rgba(0,0,0,0)'
+    };
+    
+    Plotly.newPlot(targetDiv, [trace], layout, {responsive: true});
+}
+
+function generateComplexityVisualization(data) {
+    console.log('🔧 Generating complexity visualization');
+    
+    const targetDiv = document.getElementById('viz-complexity');
+    if (!targetDiv) {
+        console.error('Target div viz-complexity not found');
+        return;
+    }
+    
+    // Show the tab
+    const complexityTab = document.getElementById('tab-complexity');
+    if (complexityTab) {
+        complexityTab.style.display = 'block';
+        complexityTab.scrollIntoView({ behavior: 'smooth' });
+    }
+    
+    const complexity = data.insights?.complexity_insights || {};
+    
+    targetDiv.innerHTML = `
+        <div style="padding: 20px;">
+            <h4>🔧 Code Complexity Analysis</h4>
+            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 10px 0;">
+                <p><strong>Files Analyzed:</strong> ${complexity.files_analyzed || 0}</p>
+                <p><strong>Total Complexity:</strong> ${complexity.total_complexity || 0}</p>
+                <p><strong>Average Complexity:</strong> ${complexity.average_complexity || 0}</p>
+                <p><strong>High Complexity Files:</strong> ${(complexity.high_complexity_files || []).length}</p>
+            </div>
+            <div style="background: #e7f3ff; padding: 15px; border-radius: 8px; margin: 10px 0;">
+                <h5>�� Insights:</h5>
+                <ul>
+                    <li>Total commits analyzed: ${data.insights?.summary?.total_commits_analyzed || 0}</li>
+                    <li>Unique authors: ${data.insights?.summary?.unique_authors || 0}</li>
+                    <li>Active months: ${data.insights?.summary?.active_months || 0}</li>
+                </ul>
+            </div>
+        </div>
+    `;
+}
+
+// Store analysis data globally when analysis completes
+window.storeAnalysisData = function(data) {
+    window.analysisData = data;
+    console.log('📊 Analysis data stored for visualizations');
+};
+
+console.log('🎨 Visualization functions added');
+
+// Enhanced query function that works even without prior analysis
+window.queryRepositoryEnhanced = async function(query, useDefault = false) {
+    console.log('🔎 Enhanced query function called');
+    
+    if (!query) {
+        query = document.getElementById('query-input')?.value?.trim();
+    }
+    
+    if (!query) {
+        alert('Please enter a query');
+        return;
+    }
+    
+    let repoId = window.currentRepoId || window.analysisData?.repo_id;
+    
+    // If no repo analyzed yet, analyze the default first
+    if (!repoId && !useDefault) {
+        console.log('📝 No repository analyzed yet, analyzing default first...');
+        await window.analyzeRepositoryBackup();
+        repoId = window.currentRepoId || window.analysisData?.repo_id || "1d60d0a17c4d";
+    } else if (!repoId) {
+        repoId = "1d60d0a17c4d"; // fallback
+    }
+    
+    try {
+        console.log('🔍 Processing query:', query, 'for repo:', repoId);
+        
+        // Show loading
+        const loadingDiv = document.getElementById('query-loading');
+        if (loadingDiv) {
+            loadingDiv.style.display = 'block';
+        }
+        
+        const response = await fetch('/api/query', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ 
+                query: query, 
+                repoId: repoId 
+            })
+        });
+        
+        const data = await response.json();
+        console.log('🔍 Query response:', data);
+        
+        if (response.ok && data.success) {
+            // Extract the actual AI response
+            let aiAnswer = "No detailed answer available.";
+            if (data.results && data.results.repository_context && data.results.repository_context.description) {
+                aiAnswer = data.results.repository_context.description;
+            } else if (data.answer) {
+                aiAnswer = data.answer;
+            }
+            
+            // Show results
+            let resultsDiv = document.getElementById('query-results');
+            if (!resultsDiv) {
+                // Create results div if it doesn't exist
+                const querySection = document.getElementById('query-form')?.parentElement;
+                if (querySection) {
+                    resultsDiv = document.createElement('div');
+                    resultsDiv.id = 'query-results';
+                    resultsDiv.className = 'results-container';
+                    resultsDiv.style.display = 'none';
+                    querySection.appendChild(resultsDiv);
+                }
+            }
+            
+            if (resultsDiv) {
+                resultsDiv.style.display = 'block';
+                resultsDiv.innerHTML = `
+                    <div class="card mt-6">
+                        <h3>✅ Query Complete!</h3>
+                        <p><strong>Question:</strong> ${query}</p>
+                        <div class="mt-4">
+                            <h4>🤖 AI Answer:</h4>
+                            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; white-space: pre-wrap; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; ">
+                                ${aiAnswer}
+                            </div>
+                        </div>
+                        <div class="mt-4" style="font-size: 0.9em; color: #666;">
+                            <p><strong>Repository:</strong> ${repoId}</p>
+                            <p><strong>Query Time:</strong> ${new Date().toLocaleString()}</p>
+                        </div>
+                    </div>
+                `;
+                resultsDiv.scrollIntoView({ behavior: 'smooth' });
+            }
+        } else {
+            alert('❌ Error: ' + (data.error || 'Query failed'));
+        }
+    } catch (error) {
+        console.error('Query error:', error);
+        alert('❌ Query error: ' + error.message);
+    } finally {
+        // Hide loading
+        const loadingDiv = document.getElementById('query-loading');
+        if (loadingDiv) {
+            loadingDiv.style.display = 'none';
+        }
+    }
+};
+
+console.log('🔧 Enhanced query function added');
+
+// Debug function to check what data is available
+window.debugAnalysisData = function() {
+    console.log('🔍 Debug: Analysis Data Check');
+    console.log('window.analysisData:', !!window.analysisData, window.analysisData);
+    console.log('window.currentAnalysisData:', !!window.currentAnalysisData, window.currentAnalysisData);
+    console.log('window.currentRepoId:', window.currentRepoId);
+    console.log('window.app?.analysisData:', !!window.app?.analysisData, window.app?.analysisData);
+    
+    // Return the best available data
+    return window.analysisData || window.currentAnalysisData || window.app?.analysisData;
+};
+
+// Enhanced analysis backup function that definitely stores data properly
+window.analyzeRepositoryBackupEnhanced = async function() {
+    console.log('🚀 Enhanced analyze function called');
+    
+    const repoUrl = document.getElementById('repo-url').value.trim();
+    if (!repoUrl) {
+        alert('Please enter a repository URL');
+        return;
+    }
+    
+    try {
+        console.log('📝 Analyzing:', repoUrl);
+        
+        // Show loading
+        const loadingDiv = document.getElementById('analysis-loading');
+        if (loadingDiv) {
+            loadingDiv.style.display = 'block';
+        }
+        
+        const response = await fetch('/api/analyze-repo-url', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ repoUrl: repoUrl })
+        });
+        
+        const data = await response.json();
+        console.log('📊 Analysis response:', data);
+        
+        if (response.ok && data.success) {
+            // Store analysis data in MULTIPLE places to ensure it's available
+            window.analysisData = data.analysis;
+            window.currentAnalysisData = data.analysis;
+            window.currentRepoId = data.analysis.repo_id;
+            
+            // Also store in app object if it exists
+            if (window.app) {
+                window.app.analysisData = data.analysis;
+                window.app.currentRepoId = data.analysis.repo_id;
+            }
+            
+            console.log('✅ Analysis data stored successfully:');
+            console.log('  - window.analysisData:', !!window.analysisData);
+            console.log('  - window.currentAnalysisData:', !!window.currentAnalysisData);
+            console.log('  - window.currentRepoId:', window.currentRepoId);
+            
+            // Show results
+            const resultsDiv = document.getElementById('analysis-results');
+            if (resultsDiv) {
+                resultsDiv.style.display = 'block';
+                resultsDiv.innerHTML = `
+                    <div class="card mt-6">
+                        <h3>✅ Analysis Complete!</h3>
+                        <p><strong>Repository:</strong> ${data.analysis.repo_url}</p>
+                        <p><strong>Total Commits:</strong> ${data.analysis.structure_info.total_commits}</p>
+                        <p><strong>Contributors:</strong> ${data.analysis.structure_info.contributors_count}</p>
+                        <p><strong>Analysis ID:</strong> ${data.analysis.repo_id}</p>
+                        <div class="mt-4">
+                            <h4>Repository Structure:</h4>
+                            <ul>
+                                <li>Total Files: ${data.analysis.structure_info.total_files}</li>
+                                <li>Repository Size: ${data.analysis.structure_info.repository_size_mb.toFixed(2)} MB</li>
+                                <li>Total Branches: ${data.analysis.structure_info.total_branches}</li>
+                            </ul>
+                        </div>
+                        <div class="mt-4">
+                            <p><strong>🎨 Now you can:</strong></p>
+                            <ul>
+                                <li>Ask questions using the Query section</li>
+                                <li>Generate visualizations using the buttons below</li>
+                                <li>Explore the repository insights</li>
+                            </ul>
+                        </div>
+                    </div>
+                `;
+                resultsDiv.scrollIntoView({ behavior: 'smooth' });
+            }
+            
+            alert('✅ Repository analysis completed successfully! You can now use visualizations and ask questions.');
+        } else {
+            alert('❌ Error: ' + (data.error || 'Analysis failed'));
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('❌ Network error: ' + error.message);
+    } finally {
+        // Hide loading
+        const loadingDiv = document.getElementById('analysis-loading');
+        if (loadingDiv) {
+            loadingDiv.style.display = 'none';
+        }
+    }
+};
+
+console.log('🔧 Enhanced analysis function added');
+
+// Enhanced tab switching function
+window.showTabEnhanced = function(tabName, element) {
+    console.log('🔄 Switching to tab:', tabName);
+    
+    // Hide all content sections
+    const sections = ['analysis-section', 'query-section', 'visualization-section'];
+    sections.forEach(sectionId => {
+        const section = document.getElementById(sectionId);
+        if (section) {
+            section.style.display = 'none';
+        }
+    });
+    
+    // Show the selected section
+    const targetSection = document.getElementById(tabName + '-section');
+    if (targetSection) {
+        targetSection.style.display = 'block';
+        console.log('✅ Showed section:', tabName + '-section');
+    } else {
+        console.warn('⚠️ Section not found:', tabName + '-section');
+    }
+    
+    // Update tab styles
+    const tabs = document.querySelectorAll('.nav-tab');
+    tabs.forEach(tab => tab.classList.remove('active'));
+    
+    if (element) {
+        element.classList.add('active');
+    }
+    
+    // If switching to visualization tab, check data availability
+    if (tabName === 'visualization') {
+        const availableData = window.debugAnalysisData();
+        if (!availableData) {
+            console.warn('⚠️ No analysis data available for visualizations');
+            alert('Please analyze a repository first before generating visualizations.');
+        } else {
+            console.log('✅ Analysis data available for visualizations');
+        }
+    }
+};
+
+console.log('🔧 Enhanced tab switching function added');

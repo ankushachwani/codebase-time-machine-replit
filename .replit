@@ -1,0 +1,32 @@
+run = "npm install && npm start"
+modules = ["nodejs-18", "python3"]
+
+[nix]
+channel = "stable-22_11"
+
+[env]
+XDG_CONFIG_HOME = "/home/runner/.config"
+
+[gitHubImport]
+requiredFiles = [".replit", "replit.nix", "package.json"]
+
+[languages]
+
+[languages.javascript]
+pattern = "**/{*.js,*.jsx,*.ts,*.tsx}"
+
+[languages.javascript.languageServer]
+start = "typescript-language-server --stdio"
+
+[languages.python]
+pattern = "**/*.py"
+
+[languages.python.languageServer]
+start = "pylsp"
+
+[deployment]
+run = ["sh", "-c", "npm install && npm start"]
+
+[[ports]]
+localPort = 3000
+externalPort = 80

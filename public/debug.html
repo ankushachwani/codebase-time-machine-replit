@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug - Codebase Time Machine</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { border: 1px solid #ccc; padding: 15px; margin: 10px 0; }
+        button { padding: 10px 20px; margin: 5px; }
+        input { padding: 5px; margin: 5px; width: 300px; }
+    </style>
+</head>
+<body>
+    <h1>Codebase Time Machine - Debug Page</h1>
+    
+    <div class="test-section">
+        <h3>Test 1: Simple API Test</h3>
+        <button onclick="testAPI()">Test API Health</button>
+        <div id="api-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>Test 2: GitHub URL Analysis</h3>
+        <input type="text" id="test-url" value="https://github.com/octocat/Hello-World.git" placeholder="GitHub URL">
+        <button onclick="testGitHubAnalysis()">Analyze Repository</button>
+        <div id="github-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>Test 3: Form Submission</h3>
+        <form id="test-form" onsubmit="testForm(event)">
+            <input type="text" name="testField" value="test data">
+            <button type="submit">Submit Form</button>
+        </form>
+        <div id="form-result"></div>
+    </div>
+
+    <script>
+        async function testAPI() {
+            try {
+                const response = await fetch('/api/health');
+                const data = await response.json();
+                document.getElementById('api-result').innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+            } catch (error) {
+                document.getElementById('api-result').innerHTML = 'Error: ' + error.message;
+            }
+        }
+        
+        async function testGitHubAnalysis() {
+            const url = document.getElementById('test-url').value;
+            try {
+                document.getElementById('github-result').innerHTML = 'Loading...';
+                const response = await fetch('/api/analyze-repo-url', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ repoUrl: url })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    document.getElementById('github-result').innerHTML = '<strong>Success!</strong><br><pre>' + JSON.stringify(data.analysis.structure_info, null, 2) + '</pre>';
+                } else {
+                    document.getElementById('github-result').innerHTML = '<strong>Error:</strong> ' + data.error;
+                }
+            } catch (error) {
+                document.getElementById('github-result').innerHTML = 'Error: ' + error.message;
+            }
+        }
+        
+        function testForm(event) {
+            event.preventDefault();
+            document.getElementById('form-result').innerHTML = 'Form submitted successfully!';
+        }
+        
+        console.log('Debug page loaded successfully');
+    </script>
+</body>
+</html>

@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Codebase Time Machine - Navigate Your Code Through Time</title>
+    <meta name="description" content="Analyze git repositories using semantic AI to understand code evolution, developer contributions, and architectural decisions">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@300;400;700&family=Open+Sans:wght@400;500;600&family=Pacifico&display=swap" rel="stylesheet">
+    
+    <!-- Plotly.js for visualizations -->
+    <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
+    
+    <!-- Three.js for 3D effects -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <style>
+        :root {
+            /* Primary Colors */
+            --forest-green: #2D5B3D;
+            --earth-brown: #8B4513;
+            --sky-blue: #87CEEB;
+            --sunflower-yellow: #FFD700;
+
+            /* Background Colors */
+            --cream-white: #FFF8DC;
+            --sage-gray: #9CAF88;
+            --bark-brown: #4A4A3A;
+            --stone-beige: #F5F5DC;
+
+            /* Accent Colors */
+            --moss-green: #8FBC8F;
+            --clay-orange: #CC7722;
+            --ocean-teal: #5F8A8B;
+            --sunset-coral: #FF6B6B;
+
+            /* Font Weights */
+            --font-light: 300;
+            --font-regular: 400;
+            --font-medium: 500;
+            --font-bold: 700;
+
+            /* Spacing Scale */
+            --space-1: 4px;
+            --space-2: 8px;
+            --space-3: 12px;
+            --space-4: 16px;
+            --space-6: 24px;
+            --space-8: 32px;
+            --space-12: 48px;
+            --space-16: 64px;
+            --space-24: 96px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Open Sans', sans-serif;
+            background: linear-gradient(135deg, var(--cream-white) 0%, var(--stone-beige) 100%);
+            min-height: 100vh;
+            color: var(--bark-brown);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 var(--space-6);
+        }
+
+        /* Header Styles */
+        .header {
+            background: linear-gradient(90deg, var(--cream-white) 0%, rgba(156, 175, 136, 0.1) 100%);
+            backdrop-filter: blur(10px);
+            border-bottom: 2px solid rgba(143, 188, 143, 0.2);
+            padding: var(--space-4) 0;
+            position: sticky;
+            top: 0;
+            z-index: 50;
+        }
+
+        .nav {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: var(--space-6);
+        }
+
+        .logo {
+            font-family: 'Pacifico', cursive;
+            font-size: 1.5rem;
+            color: var(--forest-green);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+        }
+
+        .logo::before {
+            content: "🌳";
+            font-size: 1.2em;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: var(--space-6);
+            list-style: none;
+        }
+
+        .nav-link {
+            color: var(--forest-green);
+            text-decoration: none;
+            font-weight: var(--font-medium);
+            transition: all 0.3s ease;
+            padding: var(--space-2) var(--space-4);
+            border-radius: 20px;
+        }
+
+        .nav-link:hover {
+            background: rgba(143, 188, 143, 0.2);
+            transform: translateY(-2px);
+        }
+
+        /* Hero Section */
+        .hero {
+            padding: var(--space-24) 0;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(circle at 30% 70%, rgba(143, 188, 143, 0.1) 0%, transparent 50%),
+                        radial-gradient(circle at 70% 30%, rgba(135, 206, 235, 0.1) 0%, transparent 50%);
+            pointer-events: none;
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 2;
+        }
+
+        .hero h1 {
+            font-family: 'Merriweather', serif;
+            font-size: clamp(2rem, 5vw, 3.5rem);
+            font-weight: var(--font-bold);
+            color: var(--forest-green);
+            margin-bottom: var(--space-6);
+            line-height: 1.2;
+        }
+
+        .hero p {
+            font-size: 1.125rem;
+            color: var(--bark-brown);
+            margin-bottom: var(--space-8);
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        /* Button Styles */
+        .btn {
+            display: inline-block;
+            padding: var(--space-4) var(--space-8);
+            background: linear-gradient(135deg, var(--forest-green) 0%, var(--moss-green) 100%);
+            color: var(--cream-white);
+            text-decoration: none;
+            border-radius: 50px;
+            font-weight: var(--font-medium);
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(45, 91, 61, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(45, 91, 61, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(-1px);
+        }
+
+        /* Cards */
+        .card {
+            background: var(--cream-white);
+            border: 2px solid rgba(156, 175, 136, 0.3);
+            border-radius: 24px;
+            padding: var(--space-8);
+            box-shadow: 0 8px 30px rgba(139, 69, 19, 0.1);
+            transition: all 0.5s ease;
+            position: relative;
+            overflow: visible;
+            min-height: auto;
+            height: auto;
+        }
+
+        .card::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, transparent 0%, rgba(156, 175, 136, 0.05) 100%);
+            pointer-events: none;
+        }
+
+        .card:hover {
+            transform: translateY(-8px) rotate(1deg);
+            box-shadow: 0 15px 40px rgba(139, 69, 19, 0.2);
+            border-color: rgba(143, 188, 143, 0.5);
+        }
+
+        /* Main Content Areas */
+        .main-content {
+            padding: var(--space-16) 0;
+        }
+
+        .analysis-section, .query-section, .results-section, .viz-section {
+            margin-bottom: var(--space-16);
+        }
+
+        .section-title {
+            font-family: 'Merriweather', serif;
+            font-size: 2rem;
+            color: var(--forest-green);
+            margin-bottom: var(--space-6);
+            text-align: center;
+        }
+
+        .section-subtitle {
+            font-size: 1.125rem;
+            color: var(--bark-brown);
+            text-align: center;
+            margin-bottom: var(--space-8);
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        /* Form Styles */
+        .form-group {
+            margin-bottom: var(--space-6);
+        }
+
+        .form-label {
+            display: block;
+            font-weight: var(--font-medium);
+            color: var(--forest-green);
+            margin-bottom: var(--space-2);
+        }
+
+        .form-input {
+            width: 100%;
+            padding: var(--space-4);
+            border: 2px solid rgba(156, 175, 136, 0.3);
+            border-radius: 16px;
+            background: rgba(255, 248, 220, 0.8);
+            color: var(--bark-brown);
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            font-family: inherit;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--moss-green);
+            box-shadow: 0 0 0 3px rgba(143, 188, 143, 0.2);
+            background: var(--cream-white);
+        }
+
+        .file-upload {
+            position: relative;
+            display: inline-block;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        .file-upload input[type="file"] {
+            opacity: 0;
+            position: absolute;
+            inset: 0;
+            cursor: pointer;
+        }
+
+        .file-upload-label {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--space-3);
+            padding: var(--space-6);
+            border: 3px dashed rgba(143, 188, 143, 0.5);
+            border-radius: 20px;
+            background: rgba(255, 248, 220, 0.5);
+            transition: all 0.3s ease;
+            font-weight: var(--font-medium);
+            color: var(--forest-green);
+        }
+
+        .file-upload-label:hover {
+            border-color: var(--moss-green);
+            background: rgba(143, 188, 143, 0.1);
+        }
+
+        .file-upload-label::before {
+            content: "📁";
+            font-size: 1.5rem;
+        }
+
+        /* Loading States */
+        .loading {
+            display: none;
+            text-align: center;
+            padding: var(--space-8);
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(143, 188, 143, 0.3);
+            border-top: 4px solid var(--moss-green);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto var(--space-4);
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Results Display */
+        .results-container {
+            display: none;
+        }
+
+        .results-container.active {
+            display: block;
+        }
+
+        .result-item {
+            background: rgba(255, 248, 220, 0.7);
+            border: 1px solid rgba(143, 188, 143, 0.3);
+            border-radius: 16px;
+            padding: var(--space-6);
+            margin-bottom: var(--space-4);
+            transition: all 0.3s ease;
+        }
+
+        .result-item:hover {
+            background: var(--cream-white);
+            border-color: var(--moss-green);
+            transform: translateX(8px);
+        }
+
+        .result-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--space-3);
+            flex-wrap: wrap;
+            gap: var(--space-3);
+        }
+
+        .commit-hash {
+            font-family: 'Courier New', monospace;
+            background: rgba(143, 188, 143, 0.2);
+            padding: var(--space-1) var(--space-3);
+            border-radius: 8px;
+            font-size: 0.875rem;
+        }
+
+        .author-tag {
+            background: linear-gradient(135deg, var(--clay-orange), var(--sunset-coral));
+            color: white;
+            padding: var(--space-1) var(--space-3);
+            border-radius: 12px;
+            font-size: 0.875rem;
+            font-weight: var(--font-medium);
+        }
+
+        .date-tag {
+            color: var(--ocean-teal);
+            font-size: 0.875rem;
+        }
+
+        /* Visualization Container */
+        .viz-container {
+            background: var(--cream-white);
+            border-radius: 20px;
+            padding: var(--space-6);
+            margin: var(--space-6) 0;
+            box-shadow: 0 8px 30px rgba(139, 69, 19, 0.1);
+            min-height: 400px;
+        }
+
+        /* Tabs */
+        .tab-container {
+            margin: var(--space-8) 0;
+        }
+
+        .tab-nav {
+            display: flex;
+            gap: var(--space-2);
+            margin-bottom: var(--space-6);
+            flex-wrap: wrap;
+        }
+
+        .tab-button {
+            padding: var(--space-3) var(--space-6);
+            background: rgba(143, 188, 143, 0.2);
+            border: none;
+            border-radius: 20px;
+            color: var(--forest-green);
+            font-weight: var(--font-medium);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .tab-button.active {
+            background: linear-gradient(135deg, var(--forest-green), var(--moss-green));
+            color: var(--cream-white);
+        }
+
+        .tab-button:hover:not(.active) {
+            background: rgba(143, 188, 143, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Grid Layouts */
+        .grid {
+            display: grid;
+            gap: var(--space-6);
+        }
+
+        .grid-2 {
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        }
+
+        .grid-3 {
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        }
+
+        /* Footer */
+        .footer {
+            background: linear-gradient(135deg, var(--sage-gray) 0%, var(--bark-brown) 100%);
+            color: var(--cream-white);
+            padding: var(--space-16) 0 var(--space-8);
+            margin-top: var(--space-24);
+        }
+
+        .footer-content {
+            text-align: center;
+        }
+
+        .footer h3 {
+            font-family: 'Pacifico', cursive;
+            margin-bottom: var(--space-4);
+        }
+
+        .footer p {
+            opacity: 0.9;
+            margin-bottom: var(--space-6);
+        }
+
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: var(--space-8);
+            flex-wrap: wrap;
+        }
+
+        .footer-link {
+            color: var(--cream-white);
+            text-decoration: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .footer-link:hover {
+            opacity: 0.8;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .nav {
+                flex-direction: column;
+                gap: var(--space-4);
+            }
+
+            .nav-links {
+                gap: var(--space-4);
+            }
+
+            .hero {
+                padding: var(--space-16) 0;
+            }
+
+            .hero h1 {
+                font-size: 2rem;
+            }
+
+            .container {
+                padding: 0 var(--space-4);
+            }
+
+            .card {
+                padding: var(--space-6);
+            }
+
+            .grid-2, .grid-3 {
+                grid-template-columns: 1fr;
+            }
+
+            .tab-nav {
+                justify-content: center;
+            }
+
+            .result-meta {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+
+        /* Utility Classes */
+        .hidden { display: none !important; }
+        .text-center { text-align: center; }
+        .text-success { color: var(--moss-green); }
+        .text-error { color: var(--sunset-coral); }
+        .mb-4 { margin-bottom: var(--space-4); }
+        .mb-6 { margin-bottom: var(--space-6); }
+        .mt-6 { margin-top: var(--space-6); }
+
+        /* Animations */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-fade-in {
+            animation: fadeInUp 0.6s ease-out;
+        }
+
+        /* Three.js Canvas */
+        #three-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            opacity: 0.3;
+            z-index: 1;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <nav class="nav">
+                <a href="#" class="logo">Codebase Time Machine</a>
+                <ul class="nav-links">
+                    <li><a href="#analyze" class="nav-link">Analyze</a></li>
+                    <li><a href="#query" class="nav-link">Query</a></li>
+                    <li><a href="#visualize" class="nav-link">Visualize</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero" id="home">
+        <canvas id="three-canvas"></canvas>
+        <div class="container">
+            <div class="hero-content">
+                <h1>Navigate Your Codebase Through Time</h1>
+                <p>Unlock the secrets of your repository's evolution with AI-powered semantic analysis. Understand how features developed, track architectural decisions, and discover insights hidden in your git history.</p>
+                <a href="#analyze" class="btn">Start Analyzing</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="container">
+            
+            <!-- Repository Analysis Section -->
+            <section class="analysis-section" id="analyze">
+                <h2 class="section-title">Repository Analysis</h2>
+                <p class="section-subtitle">Start by analyzing a git repository to extract semantic insights from commit history</p>
+                
+                <div class="grid grid-2">
+                    <!-- URL Analysis -->
+                    <div class="card">
+                        <h3 class="mb-4">Analyze Repository URL</h3>
+                        <form id="url-form">
+                            <div class="form-group">
+                                <label for="repo-url" class="form-label">Git Repository URL</label>
+                                <input type="url" id="repo-url" class="form-input" 
+                                       placeholder="https://github.com/user/repository.git"
+                                       required>
+                            </div>
+                            <button type="submit" class="btn" onclick="analyzeRepositoryBackupEnhanced(); return false;">Analyze Repository</button>
+                        </form>
+                    </div>
+
+                    <!-- File Upload -->
+                    <div class="card">
+                        <h3 class="mb-4">Upload Repository Archive</h3>
+                        <form id="upload-form" enctype="multipart/form-data">
+                            <div class="form-group">
+                                <div class="file-upload">
+                                    <input type="file" id="repo-file" name="repoFile" accept=".zip" required>
+                                    <label for="repo-file" class="file-upload-label">
+                                        Choose ZIP file or drag & drop
+                                    </label>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn" onclick="uploadRepositoryBackup(); return false;">Upload <button type="submit" class="btn" onclick="uploadRepositoryBackup(); return false;">Upload & Analyze</button> Analyze</button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Loading State -->
+                <div id="analysis-loading" class="loading">
+                    <div class="loading-spinner"></div>
+                    <p>Analyzing repository... This may take a few minutes.</p>
+                    <p class="text-center" style="font-size: 0.875rem; opacity: 0.7;">
+                        Processing commits, generating embeddings, and extracting insights...
+                    </p>
+                </div>
+
+                <!-- Analysis Results -->
+                <div id="analysis-results" class="results-container">
+                    <div class="card mt-6">
+                        <h3>Analysis Complete! 🌱</h3>
+                        <div id="analysis-summary"></div>
+                        <div class="mt-6">
+                            <p>Your repository has been analyzed and indexed. You can now:</p>
+                            <ul style="margin: var(--space-4) 0; padding-left: var(--space-6);">
+                                <li>Ask natural language questions about your code evolution</li>
+                                <li>Generate visualizations of development patterns</li>
+                                <li>Explore commit history with semantic search</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Query Section -->
+            <section class="query-section" id="query">
+                <h2 class="section-title">Ask Questions About Your Code</h2>
+                <p class="section-subtitle">Use natural language to explore your repository's evolution and understand development patterns</p>
+                
+                <div class="card">
+                    <form id="query-form">
+                        <div class="form-group">
+                            <label for="query-input" class="form-label">What would you like to know?</label>
+                            <input type="text" id="query-input" class="form-input" 
+                                   placeholder="e.g., How did authentication evolve? or Who worked on the payment system?"
+                                   required>
+                        </div>
+                        <div class="form-group">
+                            <p style="font-size: 0.875rem; opacity: 0.8; margin-bottom: var(--space-4);">
+                                💡 <strong>Example queries:</strong><br>
+                                • "Show me how the API architecture changed"<br>
+                                • "Which developers contributed to the authentication system?"<br>
+                                • "What were the major refactoring efforts?"<br>
+                                • "How did error handling evolve over time?"
+                            </p>
+                        </div>
+                        <button type="submit" class="btn" onclick="queryRepositoryEnhanced(); return false;">Search Repository</button>
+                    </form>
+
+                    <!-- Query Loading -->
+                    <div id="query-loading" class="loading">
+                        <div class="loading-spinner"></div>
+                        <p>Searching through your repository...</p>
+                    </div>
+
+                    <!-- Query Results -->
+                    <div id="query-results" class="results-container">
+                        <h3>Search Results</h3>
+                        <div id="query-results-list"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Visualization Section -->
+            <section class="viz-section" id="visualize">
+                <h2 class="section-title">Repository Visualizations</h2>
+                <p class="section-subtitle">Explore visual insights about your codebase development patterns</p>
+                
+                <div class="card">
+                    <div class="tab-container">
+                        <div class="tab-nav">
+                            <button class="tab-button active" data-tab="overview">Overview</button>
+                            <button class="tab-button" data-tab="timeline">Timeline</button>
+                            <button class="tab-button" data-tab="contributors">Contributors</button>
+                            <button class="tab-button" data-tab="files">Files</button>
+                            <button class="tab-button" data-tab="complexity">Complexity</button>
+                        </div>
+
+                        <div id="tab-overview" class="tab-content active">
+                            <h4>Repository Overview</h4>
+                            <p class="mb-4">Get a comprehensive view of your repository's structure and activity.</p>
+                            <button onclick="generateVisualization('timeline')" class="btn">Generate Timeline Overview</button>
+                            <div id="viz-overview" class="viz-container"></div>
+                        </div>
+
+                        <div id="tab-timeline" class="tab-content">
+                            <h4>Commit Activity Timeline</h4>
+                            <p class="mb-4">Visualize commit activity patterns over time.</p>
+                            <button onclick="generateVisualization('timeline')" class="btn">Generate Timeline</button>
+                            <div id="viz-timeline" class="viz-container"></div>
+                        </div>
+
+                        <div id="tab-contributors" class="tab-content">
+                            <h4>Contributor Analysis</h4>
+                            <p class="mb-4">Analyze contributions by different developers.</p>
+                            <button onclick="generateVisualization('contributors')" class="btn">Generate Analysis</button>
+                            <div id="viz-contributors" class="viz-container"></div>
+                        </div>
+
+                        <div id="tab-files" class="tab-content">
+                            <h4>File Modification Patterns</h4>
+                            <p class="mb-4">See which files change most frequently.</p>
+                            <button onclick="generateVisualization('files')" class="btn">Generate Heatmap</button>
+                            <div id="viz-files" class="viz-container"></div>
+                        </div>
+
+                        <div id="tab-complexity" class="tab-content">
+                            <h4>Code Complexity Analysis</h4>
+                            <p class="mb-4">Identify high-complexity files and maintainability metrics.</p>
+                            <button onclick="generateVisualization('complexity')" class="btn">Analyze Complexity</button>
+                            <div id="viz-complexity" class="viz-container"></div>
+                        </div>
+                    </div>
+
+                    <!-- Visualization Loading -->
+                    <div id="viz-loading" class="loading">
+                        <div class="loading-spinner"></div>
+                        <p>Generating visualization...</p>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <h3>Codebase Time Machine</h3>
+                <p>Explore your code's evolution with the power of AI</p>
+                <p style="margin-top: var(--space-6); opacity: 0.7; font-size: 0.875rem;">
+                    Powered by advanced ML models and semantic analysis
+                </p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="/js/app.js"></script>
+</body>
+</html>
+<!-- Emergency debug script -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🔧 Emergency debug script loaded');
+    
+    // Add backup click handlers
+    const analyzeButton = document.querySelector('#url-form button[type="submit"]');
+    if (analyzeButton) {
+        console.log('✅ Found analyze button, adding backup handler');
+        analyzeButton.addEventListener('click', function(e) {
+            console.log('🎯 Analyze button clicked! (backup handler)');
+        });
+    } else {
+        console.log('❌ Analyze button not found');
+    }
+    
+    // Test form elements
+    const urlForm = document.getElementById('url-form');
+    const repoUrl = document.getElementById('repo-url');
+    console.log('📝 Form elements:', {
+        form: !!urlForm,
+        input: !!repoUrl,
+        formId: urlForm?.id,
+        inputId: repoUrl?.id
+    });
+});
+</script>
