@@ -127,8 +127,9 @@ Please provide a detailed, informative answer based on the repository data above
             logger.info(f"🤖 Sending query to Together AI: {query[:50]}...")
             
             # Query Together AI
+            model_name = os.getenv("TOGETHER_MODEL", "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo")
             response = self.client.completions.create(
-                model="meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
+                model=model_name,
                 prompt=prompt,
                 max_tokens=1000,
                 temperature=0.7,
